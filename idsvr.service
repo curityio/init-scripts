@@ -1,0 +1,22 @@
+# Copyright (C) 2017 Curity AB. All rights reserved.
+#
+# The contents of this file are the property of Curity AB.
+# You may not copy or use this file, in either source code
+# or executable form, except in compliance with terms
+# set by Curity AB.
+#
+# For further information, please contact Curity AB.
+#
+
+[Unit]
+Description=The Curity Identity Server
+After=network.service
+
+[Service]
+User=idsvr
+ExecStart=/opt/idsvr/bin/idsvr
+WorkingDirectory=/opt/idsvr
+Environment=IDSVR_HOME=/opt/idsvr
+
+[Install]
+WantedBy=multi-user.target

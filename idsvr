@@ -1,0 +1,155 @@
+#!/bin/bash
+#
+# Copyright (C) 2015 Curity AB. All rights reserved.
+#
+# The contents of this file are the property of Curity AB.
+# You may not copy or use this file, in either source code
+# or executable form, except in compliance with terms
+# set by Curity AB.
+#
+# For further information, please contact Curity AB.
+#
+# idsvr        Startup script for Curity Identity Server
+#
+# chkconfig: 345 84 15
+# description: The Curity Identity Server
+#
+### BEGIN INIT INFO
+# Provides: idsvr
+# Required-Start: $network
+# Required-Stop:
+# Default-Start: 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: The Curity Identity Server
+# Description: This script controls the Curity Identity Server
+### END INIT INFO
+
+set -o nounset -o errexit -o pipefail
+
+PROGRAM_NAME=$(basename ${BASH_SOURCE[0]})
+IDSVR_HOME=/opt/$PROGRAM_NAME
+PIDFILE=$IDSVR_HOME/var/run/$PROGRAM_NAME.pid
+LOGFILE=$IDSVR_HOME/var/log/server.log
+MODE=default
+USER=idsvr
+
+if [[ $PROGRAM_NAME == *admin* ]]; then
+    PROGRAM_OPTS="$PROGRAM_OPTS -a"
+    MODE=admin
+elif [[ $PROGRAM_NAME == *runtime* ]]; then
+    PROGRAM_OPTS="$PROGRAM_OPTS -n"
+    MODE=runtime
+else
+    PROGRAM_OPTS=
+fi
+
+start() {
+    if [[ ! -f $LOGFILE ]] && [[ "$EUID" -eq 0 ]]; then
+        touch $LOGFILE && chown $LOGFILE $USER
+    fi
+
+    if [ -r $PIDFILE ]; then
+        echo "Identity Server is already running"
+
+        return 0
+    else
+        PID=$(_idsvr_pid)
+        if [ -n "$PID" ]; then
+            echo "Identity Server is running without pidfile, restarting."
+            stop
+            sleep 1 # Wait for process to die
+        fi
+    fi
+
+    echo "Starting Identity Server (in $MODE mode)"
+
+    su - $USER -s /bin/bash -c "mkdir -p $(dirname $PIDFILE) $(dirname $LOGFILE)"
+
+    su - $USER -s /bin/bash -c "nohup $IDSVR_HOME/bin/idsvr $PROGRAM_OPTS >> $LOGFILE 2>&1 < /dev/null &"'
+    echo $!' > $PIDFILE
+}
+
+stop() {
+    RESULT=0
+    if [ -r $PIDFILE ]; then
+        _kill_processes
+        return $?
+    else
+        PID=$(_idsvr_pid)
+        if [ -n "$PID" ]; then
+            echo "Identity Server is running, but has no pidfile"
+            _kill_processes
+            return $?
+        fi
+        echo "Identity Server is not running"
+    fi
+    return $RESULT
+}
+
+status() {
+    IDSVR_PID=$(_idsvr_pid)
+    if [ -r $PIDFILE ]; then
+        if [ -n "$IDSVR_PID" ]; then
+            echo "Identity Server is running"
+        else
+            echo "Identity Server has pidfile but is not running, removing it"
+            rm $PIDFILE
+        fi
+    else
+        if [ -n "$IDSVR_PID" ]; then
+            echo "Identity Server is running, but has no pidfile. Recreating pidfile."
+            su - $USER -s /bin/sh -c "echo $IDSVR_PID > $PIDFILE"
+        else
+            echo "Identity Server is not running"
+        fi
+    fi
+
+    return 0
+}
+
+restart() {
+    stop 
+    sleep 1 # Wait for process to die
+    start
+}
+
+_kill_processes() {
+    RESULT=0
+    PID=$(_idsvr_pid)
+    if [ -n "$PID" ]; then
+        echo "Stopping Identity Server (in $MODE mode)"
+        kill -SIGTERM $PID
+
+        RESULT=$?
+    else 
+        echo "Identity Server is not running" 
+    fi
+    
+    rm -f $PIDFILE
+    return $RESULT
+}
+
+_idsvr_pid() {
+    if [ -r $PIDFILE ]; then
+        PID=$(pgrep -P $(cat $PIDFILE))
+    else
+        # idsvr user running java process is most likely ours
+        PID=$(pgrep -u $USER java)
+    fi
+    if [ -n "$PID" ]; then
+        echo $PID
+    fi
+    return 0
+}
+
+COMMAND=${1:-}
+
+case "$COMMAND" in
+    start) start;;
+    stop) stop;;
+    status) status;;
+    restart) restart;;
+    *) echo "Usage: $PROGRAM_NAME {start|stop|status|restart}" && exit 1;;
+esac
+
+exit $?
