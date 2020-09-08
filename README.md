@@ -1,7 +1,7 @@
 # Init Scripts
 
-[![Quality](https://curity.io/assets/images/badges/init-scripts-quality.svg)](https://curity.io/resources/code-examples/status/)
-[![Availability](https://curity.io/assets/images/badges/init-scripts-availability.svg)](https://curity.io/resources/code-examples/status/)
+[![Quality](https://img.shields.io/badge/quality-production-green)](https://curity.io/resources/code-examples/status/)
+[![Availability](https://img.shields.io/badge/availability-source-blue)](https://curity.io/resources/code-examples/status/)
 
 This repository contains example [init scripts](https://en.wikipedia.org/wiki/Init) that can be used to run the Curity Identity Server as a daemon (i.e., a service) on Linux. 
 
